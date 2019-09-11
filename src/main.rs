@@ -17,9 +17,20 @@ fn main() {
 
     let mut vm = VirtualMachine::create(&sys).unwrap();
 
+    let slice_ptr = slice.as_mut_ptr() as *mut u8;
+
+    unsafe {
+
+        let gdt_ptr = slice_ptr.offset(0x10000) as *mut u64;
+
+        *gdt_ptr.offset(0) = 0;
+        *gdt_ptr.offset(1) = 0x008f8b000000ffff;
+        *gdt_ptr.offset(2) = 0x00af9b000000ffff;
+        *gdt_ptr.offset(3) = 0x00cf93000000ffff;
+    };
+
     assert!(vm.check_capability(Capability::UserMemory) > 0);
     vm.set_user_memory_region(0, slice, 0).unwrap();
-
 
     let mut vcpu = Vcpu::create(&mut vm).unwrap();
 
@@ -34,6 +45,18 @@ fn main() {
     set_segment_selector(&mut sregs.fs, 0, !0, 1, 1, 0, 0, 0, 1, 3);
     set_segment_selector(&mut sregs.ss, 0, !0, 1, 1, 0, 0, 0, 1, 3);
     set_segment_selector(&mut sregs.tr, 0, !0, 0, 0, 0, 0, 0, 0, 11);
+
+    sregs.cr0 |= 1;
+
+    sregs.gdt.base = 0x10000;
+    sregs.gdt.limit = (mem::size_of::<u64>() * 4 - 1).try_into().unwrap();
+
+    sregs.idt.base = 0x11500;
+    sregs.idt.limit = 7;
+
+    vcpu.set_sregs(&sregs).unwrap();
+
+    let mut regs = vcpu.get_regs().unwrap();
 }
 
 fn set_segment_selector(seg : &mut kvm::Segment,

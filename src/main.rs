@@ -1,11 +1,25 @@
 extern crate kvm;
 extern crate memmap;
-extern crate libc;
 
 
 use kvm::{Capability, Exit, IoDirection, System, Vcpu, VirtualMachine};
 use memmap::{Mmap, Protection};
-use libc::{E2BIG, ENOMEM, c_int};
+
+use std::mem;
+use std::convert::TryInto;
+use std::io;
+use std::io::prelude::*;
+use std::fs::File;
+
+
+#[repr(C)]
+#[derive(Clone, Debug)]
+pub struct MyKvm {
+    pm_addr: *const u64,
+    setup_addr: *const u64,
+    initrd_addr: *const u64,
+    initrd_size: u64,
+}
 
 fn main() {
     let mut anon_mmap = Mmap::anonymous(3 << 29, Protection::ReadWrite)
@@ -79,4 +93,8 @@ fn set_segment_selector(seg : &mut kvm::Segment,
     seg.s = s;
     seg._type = _type;
     seg.present = 1;
+}
+
+fn load_kernel(filename: String, mkvm: &MyKvm) {
+    let file = File::open(&filename).unwrap();
 }
